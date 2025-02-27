@@ -127,7 +127,7 @@ If you find any issues or want to contribute to the script, feel free to fork th
 License
 -------
 
-This project is licensed under the MIT License - see the [LICENSE](https://chatgpt.com/c/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/null-p4n/bravesucks/blob/main/LICENSE) file for details.
 
 ```
 
