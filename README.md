@@ -26,8 +26,8 @@ The script removes unnecessary features, disables telemetry, and configures Brav
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/brave-debloat-privacy-script.git
-   cd brave-debloat-privacy-script
+   git clone https://github.com/null-p4n/bravesucks
+   cd bravesucks
 
 ```
 
