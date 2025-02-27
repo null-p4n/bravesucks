@@ -1,5 +1,3 @@
-```
-
 ### **Brave Browser Privacy Debloating Script**
 
 **Purpose**:\
@@ -43,7 +41,9 @@ The script automates the following tasks:
 -   **Automatic Setup**: Installs required tools (`jq`), detects system type (Debian-based or Arch-based), and customizes Brave according to the user's needs.
 -   **User-Friendly Feedback**: Provides helpful messages and error handling throughout the process, so users always know what's happening.
 -   **Custom Brave Launch Script**: Automatically creates a launch script with the optimal configuration for a privacy-first experience.
- 
+
+```
+
 # Brave Browser Debloat & Privacy Enhancement Script
 
 This script helps debloat and enhance the privacy settings of the Brave Browser. It is designed to work on both SteamOS (Arch-based) and Kali Linux (Debian-based) systems, with a focus on security and privacy.
