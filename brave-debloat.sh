@@ -2,8 +2,9 @@
 
 # Brave Browser Debloat & Privacy Enhancement Script
 # Compatible with:
-# - SteamOS (Arch-based with Flatpak packages)
-# - Kali Linux (Debian-based)
+# - Flatpak builds (including Steam Deck/SteamOS and other Flatpak-first setups)
+# - Debian-based distributions
+# - Arch-based distributions
 
 # Colors for better readability
 GREEN='\033[0;32m'
@@ -24,6 +25,9 @@ fi
 IS_FLATPAK=false
 IS_DEBIAN=false
 IS_ARCH=false
+
+# Opt-in toggle for Brave AI/Leo removal
+DISABLE_BRAVE_AI=""
 
 # Detect if flatpak is installed
 if command -v flatpak &> /dev/null; then
@@ -73,10 +77,10 @@ if [ -f "/etc/os-release" ]; then
     source /etc/os-release
     if [[ "$ID" == "steamos" || "$ID" == "arch" || "$ID_LIKE" == *"arch"* ]]; then
         IS_ARCH=true
-        echo -e "${GREEN}Detected Arch-based system (SteamOS or similar)${NC}"
-    elif [[ "$ID" == "kali" || "$ID" == "debian" || "$ID_LIKE" == *"debian"* ]]; then
+        echo -e "${GREEN}Detected Arch-based system${NC}"
+    elif [[ "$ID" == "debian" || "$ID_LIKE" == *"debian"* ]]; then
         IS_DEBIAN=true
-        echo -e "${GREEN}Detected Debian-based system (Kali or similar)${NC}"
+        echo -e "${GREEN}Detected Debian-based system${NC}"
     else
         echo -e "${YELLOW}Unrecognized OS type: $ID${NC}"
         echo -e "${YELLOW}Continuing with generic Linux support${NC}"
@@ -92,6 +96,43 @@ elif command -v brave-browser &> /dev/null; then
 elif command -v brave &> /dev/null; then
     BRAVE_EXEC="brave"
 fi
+
+# Prompt for AI/Leo disablement
+prompt_for_ai_choice() {
+    # Allow non-interactive override through DISABLE_BRAVE_AI env var
+    if [ -n "$DISABLE_BRAVE_AI" ]; then
+        case "${DISABLE_BRAVE_AI,,}" in
+            y|yes|true|1)
+                DISABLE_BRAVE_AI=true
+                ;;
+            n|no|false|0)
+                DISABLE_BRAVE_AI=false
+                ;;
+            *)
+                echo -e "${YELLOW}Unrecognized DISABLE_BRAVE_AI value. Defaulting to disabling Brave AI features.${NC}"
+                DISABLE_BRAVE_AI=true
+                ;;
+        esac
+        return
+    fi
+
+    if [ -t 0 ]; then
+        read -r -p "$(echo -e "${BLUE}Disable Brave AI/Leo features (recommended)? [Y/n]: ${NC}")" RESPONSE
+        case "${RESPONSE,,}" in
+            n|no)
+                DISABLE_BRAVE_AI=false
+                ;;
+            *)
+                DISABLE_BRAVE_AI=true
+                ;;
+        esac
+    else
+        # Non-interactive shell: default to disabling AI for privacy
+        DISABLE_BRAVE_AI=true
+    fi
+}
+
+prompt_for_ai_choice
 
 echo -e "${GREEN}Using Brave executable: $BRAVE_EXEC${NC}"
 
@@ -228,6 +269,82 @@ modify_preference() {
     fi
 }
 
+remove_flag_from_local_state() {
+    FLAG=$1
+    FILE=$2
+
+    if [ -f "$FILE" ]; then
+        if [ "$JQ_AVAILABLE" = true ]; then
+            TEMP_FILE=$(mktemp)
+            jq --arg flag "$FLAG" '
+                .browser.enabled_labs_experiments =
+                    (.browser.enabled_labs_experiments // [] | map(select(. != $flag)))
+            ' "$FILE" > "$TEMP_FILE"
+
+            if [ $? -eq 0 ]; then
+                mv "$TEMP_FILE" "$FILE"
+                echo -e "${GREEN}✓ Removed lab flag: $FLAG${NC}"
+            else
+                echo -e "${RED}Error: Failed to remove lab flag $FLAG${NC}"
+                rm "$TEMP_FILE"
+            fi
+        else
+            echo -e "${YELLOW}Warning: 'jq' is not installed. Skipping flag removal for $FLAG.${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Warning: File not found: $FILE${NC}"
+    fi
+}
+
+# Build disable-features list dynamically so we can extend for new Brave releases
+BASE_DISABLED_FEATURES=(
+    BraveRewards
+    BraveAds
+    BraveWallet
+    BraveNews
+    Speedreader
+    BraveAdblock
+    BraveSpeedreader
+    BraveVPN
+    Crypto
+    CryptoWallets
+    InterestCohortAPI
+    Fledge
+    Topics
+    InterestFeedV2
+    UseChromeOSDirectVideoDecoder
+)
+
+AI_DISABLED_FEATURES=(
+    BraveLeo
+    BraveLeoInline
+    BraveAIChat
+    BraveAIPrompts
+    BravePromptAutocomplete
+)
+
+build_disable_features_arg() {
+    local features=("${BASE_DISABLED_FEATURES[@]}")
+
+    if [ "$DISABLE_BRAVE_AI" = true ]; then
+        features+=("${AI_DISABLED_FEATURES[@]}")
+    fi
+
+    local joined=""
+    local first=true
+    for feature in "${features[@]}"; do
+        if [ "$first" = true ]; then
+            joined="$feature"
+            first=false
+        else
+            joined="$joined,$feature"
+        fi
+    done
+    echo "$joined"
+}
+
+DISABLE_FEATURES_ARG=$(build_disable_features_arg)
+
 # Create custom launch script based on installation method
 echo -e "\n${BLUE}Creating custom Brave launch script${NC}"
 LAUNCH_SCRIPT="$HOME/.local/bin/brave-private"
@@ -240,11 +357,10 @@ if [ "$IS_FLATPAK" = true ]; then
 
 flatpak run com.brave.Browser \
   --disable-brave-sync \
-  --disable-features=BraveRewards,BraveAds,BraveWallet,BraveNews,Speedreader,BraveAdblock,BraveSpeedreader,BraveVPN,Crypto,CryptoWallets \
+  --disable-features=${DISABLE_FEATURES_ARG} \
   --disable-background-networking \
   --disable-component-extensions-with-background-pages \
   --disable-domain-reliability \
-  --disable-features=InterestCohortAPI,Fledge,Topics,InterestFeedV2,UseChromeOSDirectVideoDecoder \
   --disable-sync-preferences \
   --disable-site-isolation-trials \
   --disable-prediction-service \
@@ -278,11 +394,10 @@ else
 
 $BRAVE_EXEC \
   --disable-brave-sync \
-  --disable-features=BraveRewards,BraveAds,BraveWallet,BraveNews,Speedreader,BraveAdblock,BraveSpeedreader,BraveVPN,Crypto,CryptoWallets \
+  --disable-features=${DISABLE_FEATURES_ARG} \
   --disable-background-networking \
   --disable-component-extensions-with-background-pages \
   --disable-domain-reliability \
-  --disable-features=InterestCohortAPI,Fledge,Topics,InterestFeedV2,UseChromeOSDirectVideoDecoder \
   --disable-sync-preferences \
   --disable-site-isolation-trials \
   --disable-prediction-service \
@@ -373,6 +488,13 @@ if [ -n "$PROFILE_DIR" ] && [ "$JQ_AVAILABLE" = true ]; then
             # Disable other features
             modify_preference '.brave.today.opted_in' 'false' "$PREF_FILE"
             modify_preference '.brave.ipfs.enabled' 'false' "$PREF_FILE"
+
+            if [ "$DISABLE_BRAVE_AI" = true ]; then
+                modify_preference '.brave.leo.enabled' 'false' "$PREF_FILE"
+                modify_preference '.brave.leo.onboarding_seen' 'true' "$PREF_FILE"
+                modify_preference '.brave.ai_chat.enabled' 'false' "$PREF_FILE"
+                modify_preference '.brave.ai.autocomplete_enabled' 'false' "$PREF_FILE"
+            fi
             
             echo -e "${GREEN}✓ Updated Brave preferences${NC}"
         else
@@ -390,9 +512,20 @@ if [ -n "$PROFILE_DIR" ] && [ "$JQ_AVAILABLE" = true ]; then
                 "brave-vpn"
                 "ipfs"
             )
+
+            if [ "$DISABLE_BRAVE_AI" = true ]; then
+                FLAGS_TO_DISABLE+=(
+                    "brave-leo"
+                    "brave-leo-inline"
+                    "brave-leo-lite"
+                    "brave-ai-chat"
+                    "brave-ai-prompts"
+                    "brave-ai-autocomplete"
+                )
+            fi
             
             for FLAG in "${FLAGS_TO_DISABLE[@]}"; do
-                modify_preference ".browser.enabled_labs_experiments |= (. - [\"$FLAG\"])" "." "$LOCAL_STATE_FILE"
+                remove_flag_from_local_state "$FLAG" "$LOCAL_STATE_FILE"
             done
             
             echo -e "${GREEN}✓ Disabled Brave flags in Local State file${NC}"
@@ -423,6 +556,8 @@ HOSTS_ENTRIES=(
     "0.0.0.0 analytics.brave.com"
     "0.0.0.0 rewards.brave.com"
     "0.0.0.0 pcdn.brave.com"
+    "0.0.0.0 static1.brave.com"
+    "0.0.0.0 updates.bravesoftware.com"
 )
 
 if [ "$IS_ROOT" = true ]; then
@@ -586,7 +721,7 @@ echo -e "   - Privacy Badger"
 echo -e "   - ClearURLs"
 
 if [ "$IS_DEBIAN" = true ] && [ "$IS_ROOT" = false ]; then
-    echo -e "\n${YELLOW}For Kali/Debian systems:${NC}"
+    echo -e "\n${YELLOW}For Debian-based systems:${NC}"
     echo -e "Run this script with sudo for full functionality: ${YELLOW}sudo $0${NC}"
 fi
 
