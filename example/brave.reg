@@ -1,0 +1,18 @@
+Windows Registry Editor Version 5.00
+; brave version: 124.1.67.42
+
+[HKEY_LOCAL_MACHINE\Software\Policies\BraveSoftware\Brave]
+"TorDisabled"=dword:00000001
+"IPFSEnabled"=dword:00000000
+"BraveRewardsDisabled"=dword:00000001
+"BraveWalletDisabled"=dword:00000001
+"BraveVPNDisabled"=dword:00000001
+"BraveAIChatEnabled"=dword:00000000
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave\BraveShieldsEnabledForUrls]
+"1"="[*.]twitter.com"
+"2"="https://www.example.com"
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Policies\BraveSoftware\Brave\BraveShieldsDisabledForUrls]
+"1"="https://www.example.com"
+"2"="[*.]brave.com"
