@@ -2,7 +2,7 @@
 
 Make Brave quieter, lighter, and more private with one command. The script now highlights Flatpak installs (including Steam Deck/SteamOS), Debian-based distros, and Arch-based systems, and it can optionally disable Brave AI/Leo features for newer releases.
 
-## Quick start
+## Quick start (Linux/macOS)
 
 ```bash
 git clone https://github.com/null-p4n/bravesucks
@@ -32,11 +32,32 @@ After running:
 - Flatpak builds (`com.brave.Browser`) on SteamOS/Steam Deck and other Flatpak-focused setups.
 - Debian-based distributions (e.g., Debian, Ubuntu, Pop!_OS).
 - Arch-based distributions (e.g., Arch, EndeavourOS, Manjaro, SteamOS base).
+- Windows (policy template in `windows/examples/brave.reg` and PowerShell helper in `brave-debloat.ps1`).
 
-## Options
+## Options (Linux/macOS)
 
 - **Disable Brave AI/Leo:** respond to the prompt, or set `DISABLE_BRAVE_AI=true|false` before running.
 - **jq installation:** the script will install `jq` automatically on Debian/Arch when run as root; otherwise it prints manual commands.
+
+## Windows policy template
+
+If you need to apply the same hardening on Windows, import `windows/examples/brave.reg` (mirroring the `policy_templates.zip` layout from Brave’s Group Policy page) via Registry Editor. It preconfigures common Brave policies—Rewards, VPN, Wallet, IPFS, Tor, Shields exceptions, and AI Chat—to align with the privacy defaults used by the Linux script.
+
+## Windows PowerShell helper
+
+To mirror the bash workflow on Windows, run `brave-debloat.ps1` from an elevated PowerShell prompt:
+
+```powershell
+Set-ExecutionPolicy -Scope Process RemoteSigned
+.\brave-debloat.ps1
+```
+
+The script will:
+- Detect Brave, create a `~/bin/brave-private.cmd` launcher with hardened flags, and prompt to disable Brave AI/Leo (default: disable).
+- Back up your Preferences/Local State, then disable Rewards, Ads, Wallet, Telemetry, IPFS, and (optionally) AI settings.
+- Remove Brave lab flags from Local State where present.
+- Block Brave telemetry domains in the hosts file when run as Administrator (otherwise prints the entries to add).
+- Ask whether to apply the same Brave policy keys shipped in `windows/examples/brave.reg`; if you agree, run as Administrator so it can write to `HKLM\SOFTWARE\Policies\BraveSoftware\Brave`.
 
 ## Troubleshooting tips
 
